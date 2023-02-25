@@ -4,4 +4,4 @@ project(cpp-experiments
     LANGUAGES C CXX
 )
 
-add_subdirectory("01-GUI")
+add_subdirectory(01-Metal-GUI)
