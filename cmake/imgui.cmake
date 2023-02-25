@@ -3,17 +3,18 @@ include(${CMAKE_SOURCE_DIR}/cmake/metal-cpp.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/glfw.cmake)
 
 set(IMGUI_BASE_DIR ${FETCHCONTENT_BASE_DIR}/imgui-src)
-# Not needed, since it is equivalent to the very similar variable set by
-# FetchContent_Declare (imgui_SOURCE_DIR).
-#set(IMGUI_SOURCE_DIR ${IMGUI_BASE_DIR}/imgui)
+set(IMGUI_SOURCE_DIR ${IMGUI_BASE_DIR}/imgui)
 
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/3O11/imgui
-    SOURCE_DIR     IMGUI_SOURCE_DIR
+    GIT_TAG        192196711a7d0d7c2d60454d42654cf090498a74 # Version 1.89.3 on the docking branch
+    SOURCE_DIR     ${IMGUI_BASE_DIR}/imgui
 )
 
+FetchContent_GetProperties(imgui)
 if(NOT imgui_POPULATED)
+
     FetchContent_Populate(imgui)
 
     add_library(imgui-glfw-opengl STATIC)
@@ -24,18 +25,18 @@ if(NOT imgui_POPULATED)
     ##########################################################################
 
     set(IMGUI_COMMON_SOURCES
-        "${imgui_SOURCE_DIR}/imgui.h"
-        "${imgui_SOURCE_DIR}/imgui.cpp"
-        "${imgui_SOURCE_DIR}/imgui_internal.h"
-        "${imgui_SOURCE_DIR}/imgui_draw.cpp"
-        "${imgui_SOURCE_DIR}/imgui_demo.cpp"
-        "${imgui_SOURCE_DIR}/imgui_tables.cpp"
-        "${imgui_SOURCE_DIR}/imgui_widgets.cpp"
+        ${IMGUI_SOURCE_DIR}/imgui.h
+        ${IMGUI_SOURCE_DIR}/imgui.cpp
+        ${IMGUI_SOURCE_DIR}/imgui_internal.h
+        ${IMGUI_SOURCE_DIR}/imgui_draw.cpp
+        ${IMGUI_SOURCE_DIR}/imgui_demo.cpp
+        ${IMGUI_SOURCE_DIR}/imgui_tables.cpp
+        ${IMGUI_SOURCE_DIR}/imgui_widgets.cpp
     )
 
     set(IMGUI_COMMON_GLFW
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h"
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp"
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_glfw.h
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     )
 
     ##########################################################################
@@ -46,14 +47,13 @@ if(NOT imgui_POPULATED)
         PRIVATE
         ${IMGUI_COMMON_SOURCES}
         ${IMGUI_COMMON_GLFW}
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h"
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_opengl3.h
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
     )
 
     target_include_directories(imgui-glfw-opengl
         PUBLIC
         ${IMGUI_BASE_DIR}
-        PRIVATE
         ${imgui_SOURCE_DIR}
     )
 
@@ -75,8 +75,8 @@ if(NOT imgui_POPULATED)
         PRIVATE
         ${IMGUI_COMMON_SOURCES}
         ${IMGUI_COMMON_GLFW}
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_metal.h"
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_metal.mm"
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_metal.h
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_metal.mm
     )
 
     target_compile_definitions(imgui-glfw-metal
@@ -92,7 +92,6 @@ if(NOT imgui_POPULATED)
     target_include_directories(imgui-glfw-metal
         PUBLIC
         ${IMGUI_BASE_DIR}
-        PRIVATE
         ${imgui_SOURCE_DIR}
     )
 
@@ -107,4 +106,5 @@ if(NOT imgui_POPULATED)
         "-framework CoreVideo"
         "-framework QuartzCore"
     )
+
 endif()
