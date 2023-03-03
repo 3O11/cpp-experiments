@@ -5,3 +5,4 @@ project(cpp-experiments
 )
 
 add_subdirectory(01-Metal-GUI)
+add_subdirectory(02-OpenGL-GUI)

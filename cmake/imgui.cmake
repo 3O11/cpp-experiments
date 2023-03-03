@@ -1,4 +1,5 @@
 include(FetchContent)
+include(${CMAKE_SOURCE_DIR}/cmake/glad.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/metal-cpp.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/glfw.cmake)
 
@@ -9,7 +10,7 @@ FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/3O11/imgui
     GIT_TAG        192196711a7d0d7c2d60454d42654cf090498a74 # Version 1.89.3 on the docking branch
-    SOURCE_DIR     ${IMGUI_BASE_DIR}/imgui
+    SOURCE_DIR     ${IMGUI_SOURCE_DIR}
 )
 
 FetchContent_GetProperties(imgui)
