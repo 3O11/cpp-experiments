@@ -33,6 +33,7 @@
 
 # Ignore Build dirs
 **/build
+**/xcodebuild
 **/out
 
 # Ignore platform specific files

@@ -3,9 +3,9 @@ using namespace metal;
 
 struct Vertex
 {
-    float3 position;
-    float3 normal;
-    float2 texCoord;
+    float3 position [[addribute(0)]];
+    float3 normal [[addribute(1)]];
+    float2 texCoord [[addribute(2)]];
 };
 
 struct Instance
@@ -34,16 +34,15 @@ StageTransfer vertex vertexMain(
     uint instanceId [[instance_id]])
 {
     StageTransfer result;
-    //result.position = camera.projection * camera.view * instances[instanceId].transform * float4(vertices[vertexId].position, 1.0f);
-    result.position = float4(vertices[vertexId].position, 1.0f);
-    result.normal = vertices[instanceId].normal;
-    result.texCoord = vertices[instanceId].texCoord;
+    result.position = camera.projection * camera.view * instances[instanceId].transform * float4(vertices[vertexId].position, 1.0f);
+    result.normal = float4(vertices[vertexId].normal, 0.0f);
+    result.texCoord = vertices[vertexId].texCoord;
     return result;
 }
 
 half4 fragment fragmentMain(StageTransfer in [[stage_in]])
 {
-    //float3 colour = (in.normal.xyz + 1.0f) / 2.0f;
-    //return half4(half3(colour.rgb), 1.0f);
-    return half4(1.0f, 0.0f, 0.0f, 1.0f);
+    float3 colour = (in.normal.xyz + 1.0f) / 2.0f;
+    return half4(half3(colour.rgb), 1.0f);
+    //return half4(1.0f, 0.0f, 0.0f, 1.0f);
 }
