@@ -42,7 +42,7 @@ StageTransfer vertex vertexMain(
 
 half4 fragment fragmentMain(StageTransfer in [[stage_in]])
 {
-    float3 colour = (in.normal.xyz + 1.0f) / 2.0f;
+    float3 colour = abs(in.normal.xyz);
     return half4(half3(colour.rgb), 1.0f);
     //return half4(1.0f, 0.0f, 0.0f, 1.0f);
 }

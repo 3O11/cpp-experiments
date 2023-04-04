@@ -30,8 +30,6 @@
 
 #include "metalUtil.h"
 
-#include <simd/simd.h>
-
 struct Camera
 {
     Math::Matrix4f view;
@@ -58,9 +56,6 @@ int main(int argc, char **argv)
     Math::Vector2d mousePos;
 
     std::cout << "Hello world!\n";
-    std::cout << sizeof(Utils::Vertex) << "\n";
-    std::cout << sizeof(simd::float3) << "\n";
-    std::cout << sizeof(simd::float2) << "\n";
 
     // Init GLFW
     if (!glfwInit())
@@ -119,11 +114,11 @@ int main(int argc, char **argv)
     // Allocate (and fill some of) GPU memory buffers
     auto cube = Utils::Align(Utils::MakeCube());
     MTL::Buffer *cubeVertices
-        = metalDevice->newBuffer(cube.Vertices.size() * sizeof(Utils::Vertex), MTL::ResourceStorageModeManaged);
+        = metalDevice->newBuffer(cube.Vertices.size() * sizeof(Utils::AlignedVertex), MTL::ResourceStorageModeManaged);
     MTL::Buffer *cubeIndices
         = metalDevice->newBuffer(cube.Indices.size() * sizeof(uint16_t), MTL::ResourceStorageModeManaged);
 
-    memcpy(cubeVertices->contents(), &(cube.Vertices[0]), cube.Vertices.size() * sizeof(Utils::Vertex));
+    memcpy(cubeVertices->contents(), &(cube.Vertices[0]), cube.Vertices.size() * sizeof(Utils::AlignedVertex));
     memcpy(cubeIndices->contents(),  &(cube.Indices[0]),  cube.Indices.size()  * sizeof(uint16_t));
 
     cubeVertices->didModifyRange(NS::Range::Make(0, cubeVertices->length()));
@@ -253,15 +248,46 @@ int main(int argc, char **argv)
         metalColourAttachment->setStoreAction(MTL::StoreActionStore);
         metalColourAttachment->setTexture(metalDrawable->texture());
         auto metalDepthAttachment = metalRenderPassDesc->depthAttachment();
-        metalDepthAttachment->setTexture(depthBuffer);
         metalDepthAttachment->setClearDepth(1.0);
         metalDepthAttachment->setStoreAction(MTL::StoreActionDontCare);
+        metalDepthAttachment->setTexture(depthBuffer);
 
         auto metalCommandBuffer = metalCommandQueue->commandBuffer();
         auto metalCommandEncoder = metalCommandBuffer->renderCommandEncoder(metalRenderPassDesc);
 
+        // Update camera and cube
+        Camera *camera = reinterpret_cast<Camera *>(cameraData->contents());
+        camera->projection = Math::Transform::PerspectiveProjection(Math::ToRadians(90.0f), float(windowWidth) / float(windowHeight), 0.1f, 1000.0f);
+        camera->view       = Math::Transpose(Math::Quaternionf::MakeFromYawPitchRoll(yawPitchRoll.x, yawPitchRoll.y, yawPitchRoll.z).ToMatrix4()
+                           * Math::Transform::Translate(-position));
+        cameraData->didModifyRange(NS::Range::Make(0, sizeof(Camera)));
+
+        Instance *instance = reinterpret_cast<Instance *>(cubeInstances->contents());
+        instance->transform = Math::Matrix4f(1.0f);
+        cubeInstances->didModifyRange(NS::Range::Make(0, sizeof(Instance)));
+
+        // Custom rendering goes here
+        metalCommandEncoder->setRenderPipelineState(pipelineState);
+        metalCommandEncoder->setDepthStencilState(depthStencilState);
+
+        metalCommandEncoder->setVertexBuffer(cubeVertices, 0, 0);
+        metalCommandEncoder->setVertexBuffer(cubeInstances, 0, 1);
+        metalCommandEncoder->setVertexBuffer(cameraData, 0, 2);
+
+        metalCommandEncoder->setCullMode(MTL::CullModeBack);
+        metalCommandEncoder->setFrontFacingWinding(MTL::Winding::WindingCounterClockwise);
+
+        metalCommandEncoder->drawIndexedPrimitives(
+            MTL::PrimitiveType::PrimitiveTypeTriangle,
+            cube.Indices.size(),
+            MTL::IndexType::IndexTypeUInt16,
+            cubeIndices,
+            0,
+            1
+        );
+
         // ImGui related
-        /*
+        /**/
         ImGui_ImplMetal_NewFrame(metalRenderPassDesc);
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -279,41 +305,7 @@ int main(int argc, char **argv)
         else imageSize.x = imageSize.y * imageAspectRatio;
         ImGui::Image(metalTexture, imageSize);
         ImGui::End();
-        /**/
 
-        // Update camera and cube
-        Camera *camera = reinterpret_cast<Camera *>(cameraData->contents());
-        camera->projection = Math::Transform::PerspectiveProjection(Math::ToRadians(90.0f), float(windowWidth) / float(windowHeight), 0.1f, 1000.0f);
-        camera->view       = Math::Quaternionf::MakeFromYawPitchRoll(yawPitchRoll.x, yawPitchRoll.y, yawPitchRoll.z).ToMatrix4()
-                           * Math::Transform::Translate(-position);
-        cameraData->didModifyRange(NS::Range::Make(0, sizeof(Camera)));
-
-        Instance *instance = reinterpret_cast<Instance *>(cubeInstances->contents());
-        instance->transform = Math::Matrix4f(1.0f);
-        cubeInstances->didModifyRange(NS::Range::Make(0, sizeof(Instance)));
-
-        // Custom rendering goes here
-        metalCommandEncoder->setRenderPipelineState(pipelineState);
-        metalCommandEncoder->setDepthStencilState(depthStencilState);
-
-        metalCommandEncoder->setVertexBuffer(cubeVertices, 0, 0);
-        metalCommandEncoder->setVertexBuffer(cubeInstances, 0, 1);
-        metalCommandEncoder->setVertexBuffer(cameraData, 0, 2);
-
-        metalCommandEncoder->setCullMode(MTL::CullModeNone);
-        metalCommandEncoder->setFrontFacingWinding(MTL::Winding::WindingCounterClockwise);
-
-        metalCommandEncoder->drawIndexedPrimitives(
-            MTL::PrimitiveType::PrimitiveTypeTriangle,
-            cube.Indices.size(),
-            MTL::IndexType::IndexTypeUInt16,
-            cubeIndices,
-            0,
-            1
-        );
-
-        // Finish ImGui
-        /*
         ImGui::Render();
         ImGui_ImplMetal_RenderDrawData(ImGui::GetDrawData(), metalCommandBuffer, metalCommandEncoder);
 
@@ -323,8 +315,6 @@ int main(int argc, char **argv)
             ImGui::RenderPlatformWindowsDefault();
         }
         /**/
-
-        // Finish the current frame
         metalCommandEncoder->endEncoding();
         metalCommandBuffer->presentDrawable(metalDrawable);
         metalCommandBuffer->commit();
