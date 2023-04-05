@@ -41,6 +41,11 @@ struct Instance
     Math::Matrix4f transform;
 };
 
+Math::Vector3f ToVec3(const Math::Vector4f& vec4)
+{
+    return Math::Vector3f(vec4.x, vec4.y, vec4.z);
+}
+
 int main(int argc, char **argv)
 {
     int32_t prevWindowWidth = 640;
@@ -49,11 +54,13 @@ int main(int argc, char **argv)
     int32_t windowHeight = 480;
 
     float movementSpeed = 0.05f;
-    Math::Vector3f position;
-    Math::Vector3f yawPitchRoll;
-    float sensitivity = 0.05f;
+    float sensitivity = 0.5f;
     Math::Vector2d prevMousePos;
     Math::Vector2d mousePos;
+    Math::Matrix4f cameraTransform(1.0f);
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+    Math::Vector3f position;
 
     std::cout << "Hello world!\n";
 
@@ -97,19 +104,6 @@ int main(int argc, char **argv)
     ImGui_ImplGlfw_InitForOther(window, true);
     ImGui_ImplMetal_Init(metalDevice);
     bool imguiShowDemo = true;
-
-    // Load a texture into memory
-    int32_t imageWidth, imageHeight, imageChannels;
-    uint8_t *imageData = stbi_load("117.jpeg", &imageWidth, &imageHeight, &imageChannels, 4);
-    MTL::TextureDescriptor *metalTextureDescriptor =
-        MTL::TextureDescriptor::texture2DDescriptor(MTL::PixelFormatRGBA8Unorm,
-                                                    imageWidth,
-                                                    imageHeight,
-                                                    false);
-    metalTextureDescriptor->setUsage(MTL::TextureUsageShaderRead);
-    MTL::Texture *metalTexture = metalDevice->newTexture(metalTextureDescriptor);
-    metalTexture->replaceRegion({0, 0, 0, (uint32_t)imageWidth, (uint32_t)imageHeight, 1}, 0, imageData, imageWidth * 4);
-    stbi_image_free(imageData);
 
     // Allocate (and fill some of) GPU memory buffers
     auto cube = Utils::Align(Utils::MakeCube());
@@ -206,38 +200,41 @@ int main(int argc, char **argv)
         prevWindowHeight = windowHeight;
 
         // Handle input
+        Math::Vector3f positionDelta;
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         {
-            position.z += movementSpeed;
+            positionDelta.z += movementSpeed;
         }
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         {
-            position.z -= movementSpeed;
+            positionDelta.z -= movementSpeed;
         }
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         {
-            position.x -= movementSpeed;
+            positionDelta.x -= movementSpeed;
         }
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         {
-            position.x += movementSpeed;
+            positionDelta.x += movementSpeed;
         }
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         {
-            position.y -= movementSpeed;
+            positionDelta.y -= movementSpeed;
         }
         if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
         {
-            position.y += movementSpeed;
+            positionDelta.y += movementSpeed;
         }
         glfwGetCursorPos(window, &mousePos.x, &mousePos.y);
+        position += ToVec3(Math::Transform::RotateByY(-yaw) * Math::Transform::RotateByX(-pitch) * Math::Vector4f(positionDelta));
         if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
         {
             Math::Vector2d mouseDelta = prevMousePos - mousePos;
-            yawPitchRoll.x += sensitivity * float(mouseDelta.x);
-            yawPitchRoll.y += sensitivity * float(Math::Clamp(mouseDelta.y, -89.5, 89.5));
+            yaw += std::remainder(Math::ToRadians(sensitivity * float(mouseDelta.x)), 2 * Math::Constants::Pi_f);
+            pitch = Math::Clamp(pitch + Math::ToRadians(sensitivity * float(mouseDelta.y)), Math::ToRadians(-89.5f), Math::ToRadians(89.5f));
         }
         prevMousePos = mousePos;
+        cameraTransform = Math::Transform::RotateByX(pitch) * Math::Transform::RotateByY(yaw) * Math::Transform::Translate(-position);  
 
         // Prepare for drawing next frame
         auto metalDrawable = metalLayer->nextDrawable();
@@ -257,9 +254,8 @@ int main(int argc, char **argv)
 
         // Update camera and cube
         Camera *camera = reinterpret_cast<Camera *>(cameraData->contents());
-        camera->projection = Math::Transform::PerspectiveProjection(Math::ToRadians(90.0f), float(windowWidth) / float(windowHeight), 0.1f, 1000.0f);
-        camera->view       = Math::Transpose(Math::Quaternionf::MakeFromYawPitchRoll(yawPitchRoll.x, yawPitchRoll.y, yawPitchRoll.z).ToMatrix4()
-                           * Math::Transform::Translate(-position));
+        camera->projection = Math::Transpose(Math::Transform::PerspectiveProjection(Math::ToRadians(70.0f), float(windowWidth) / float(windowHeight), 0.1f, 1000.0f));
+        camera->view       = Math::Transpose(cameraTransform);
         cameraData->didModifyRange(NS::Range::Make(0, sizeof(Camera)));
 
         Instance *instance = reinterpret_cast<Instance *>(cubeInstances->contents());
@@ -287,23 +283,16 @@ int main(int argc, char **argv)
         );
 
         // ImGui related
-        /**/
         ImGui_ImplMetal_NewFrame(metalRenderPassDesc);
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        if (imguiShowDemo)
-        {
-            ImGui::ShowDemoWindow(&imguiShowDemo);
-        }
+        ImGui::Begin("Info");
 
-        ImGui::Begin("Image Window!", nullptr, ImGuiWindowFlags_NoScrollbar);
-        ImVec2 imageSize = ImGui::GetContentRegionAvail();
-        float imageAspectRatio = (float)imageWidth / (float)imageHeight;
-        float imageWindowRatio = imageSize.x / imageSize.y;
-        if (imageAspectRatio > imageWindowRatio) imageSize.y = imageSize.x / imageAspectRatio;
-        else imageSize.x = imageSize.y * imageAspectRatio;
-        ImGui::Image(metalTexture, imageSize);
+        ImGui::Text("Camera info");
+        ImGui::Text("Position: %f, %f, %f", position.x, position.y, position.z);
+        ImGui::Text("Yaw: %f, Pitch: %f", yaw, pitch);
+
         ImGui::End();
 
         ImGui::Render();
@@ -314,7 +303,7 @@ int main(int argc, char **argv)
             ImGui::UpdatePlatformWindows();
             ImGui::RenderPlatformWindowsDefault();
         }
-        /**/
+
         metalCommandEncoder->endEncoding();
         metalCommandBuffer->presentDrawable(metalDrawable);
         metalCommandBuffer->commit();
@@ -334,8 +323,6 @@ int main(int argc, char **argv)
     depthTextureDescriptor->release();
     depthBuffer->release();
 
-    metalTextureDescriptor->release();
-    metalTexture->release();
     metalDevice->release();
     metalCommandQueue->release();
 
