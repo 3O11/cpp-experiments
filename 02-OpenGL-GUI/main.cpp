@@ -107,7 +107,7 @@ int main(int argc, char **argv)
         float imageWindowRatio = imageSize.x / imageSize.y;
         if (imageAspectRatio > imageWindowRatio) imageSize.y = imageSize.x / imageAspectRatio;
         else imageSize.x = imageSize.y * imageAspectRatio;
-        ImGui::Image((ImTextureID)openglTexture, imageSize);
+        ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(openglTexture)), imageSize);
         ImGui::End();
 
 
