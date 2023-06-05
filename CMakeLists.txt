@@ -12,3 +12,5 @@ add_subdirectory(03-Vulkan-GUI)
 add_subdirectory(10-Metal-Rendering)
 
 add_subdirectory(20-BundleJava)
+
+add_subdirectory(30-ArgParsing)
