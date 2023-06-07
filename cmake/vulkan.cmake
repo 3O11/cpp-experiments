@@ -1,7 +1,6 @@
 include(FetchContent)
 
-if(NOT $ENV{VULKAN_CMAKE_CONFIGURED})
-set(ENV{VULKAN_CMAKE_CONFIGURED} ON)
+cmake_policy(SET CMP0135 NEW)
 
 ##############################################################################
 # Declare Vulkan repositories
@@ -16,13 +15,13 @@ set(MOLTENVK_VERSION   v1.2.4)
 # Basic Vulkan stuff
 
 FetchContent_Declare(
-    VulkanHeaders
+    vulkan-headers
     GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers
     GIT_TAG        ${VULKAN_SDK_VERSION}
 )
 
 FetchContent_Declare(
-    VulkanLoader
+    vulkan-loader
     GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Loader
     GIT_TAG        ${VULKAN_SDK_VERSION}
 )
@@ -44,25 +43,25 @@ FetchContent_Declare(
 # SPIRV
 
 FetchContent_Declare(
-    SPIRVHeaders
+    spirv-headers
     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
     GIT_TAG        ${VULKAN_SDK_VERSION}
 )
 
 FetchContent_Declare(
-    SPIRVTools
+    spirv-tools
     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
     GIT_TAG        ${VULKAN_SDK_VERSION}
 )
 
 FetchContent_Declare(
-    SPIRVCross
+    spirv-cross
     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross
     GIT_TAG        ${VULKAN_SDK_VERSION}
 )
 
 FetchContent_Declare(
-    SPIRVReflect
+    spirv-reflect
     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Reflect
     GIT_TAG        ${VULKAN_SDK_VERSION}
 )
@@ -76,13 +75,13 @@ FetchContent_Declare(
 )
 
 FetchContent_Declare(
-    VMA
+    vma
     GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
 )
 
 FetchContent_Declare(
-    MoltenVK
-    URL https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.4/MoltenVK-macos.tar
+    moltenvk
+    URL https://github.com/KhronosGroup/moltenvk/releases/download/v1.2.4/moltenvk-macos.tar
 )
 
 ##############################################################################
@@ -113,14 +112,14 @@ set(VOLK_PULL_IN_VULKAN OFF CACHE BOOL "" FORCE)
 # Make necessary targets available
 FetchContent_MakeAvailable(
     # Base libraries
-    VulkanHeaders
-    VulkanLoader
+    vulkan-headers
+    vulkan-loader
 
     # SPIRV manipulation libraries
-    SPIRVHeaders
-    SPIRVTools
-    SPIRVCross
-    SPIRVReflect
+    spirv-headers
+    spirv-tools
+    spirv-cross
+    spirv-reflect
 
     # Shader compilers
     glslang
@@ -130,9 +129,9 @@ FetchContent_MakeAvailable(
     volk
 )
 
-FetchContent_GetProperties(VMA)
+FetchContent_GetProperties(vma)
 if(NOT vma_POPULATED)
-    FetchContent_Populate(VMA)
+    FetchContent_Populate(vma)
 
     add_library(VulkanMemoryAllocator INTERFACE)
     target_include_directories(VulkanMemoryAllocator
@@ -141,10 +140,12 @@ if(NOT vma_POPULATED)
     )
 endif()
 
-FetchContent_GetProperties(MoltenVK)
+FetchContent_GetProperties(moltenvk)
 if(NOT moltenvk_POPULATED)
-    FetchContent_Populate(MoltenVK)
+    FetchContent_Populate(moltenvk)
+endif()
 
+if(NOT TARGET MoltenVK)
     add_library(MoltenVK STATIC IMPORTED)
     target_include_directories(MoltenVK
         INTERFACE
@@ -155,23 +156,25 @@ if(NOT moltenvk_POPULATED)
     )
 endif()
 
-add_library(SPIRV-Cross INTERFACE)
-target_link_libraries(SPIRV-Cross
-    INTERFACE
-    spirv-cross-glsl
-    spirv-cross-hlsl
-    spirv-cross-msl
-    spirv-cross-cpp
-    spirv-cross-reflect
-    spirv-cross-util
-)
+if(NOT TARGET SPIRV-Cross)
+    add_library(SPIRV-Cross INTERFACE)
+    target_link_libraries(SPIRV-Cross
+        INTERFACE
+        spirv-cross-glsl
+        spirv-cross-hlsl
+        spirv-cross-msl
+        spirv-cross-cpp
+        spirv-cross-reflect
+        spirv-cross-util
+    )
+endif()
 
-add_library(SPIRV-Reflect ALIAS spirv-reflect-static)
+if(NOT TARGET SPIRV-Reflect)
+    add_library(SPIRV-Reflect ALIAS spirv-reflect-static)
+endif()
 
 target_link_libraries(volk
     PRIVATE
     Vulkan::Headers
     Vulkan::Vulkan
 )
-
-endif(NOT $ENV{VULKAN_CMAKE_CONFIGURED})

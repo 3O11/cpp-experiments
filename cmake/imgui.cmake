@@ -139,12 +139,6 @@ if(NOT imgui_POPULATED)
         target_link_libraries(imgui-glfw-vulkan
             PRIVATE
             MoltenVK
-            "-framework Metal"
-            "-framework MetalKit"
-            "-framework Cocoa"
-            "-framework IOKit"
-            "-framework CoreVideo"
-            "-framework QuartzCore"
         )
     else()
         target_link_libraries(imgui-glfw-vulkan
