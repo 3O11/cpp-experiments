@@ -1,5 +1,6 @@
 include(FetchContent)
 include(${CMAKE_SOURCE_DIR}/cmake/glad.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/vulkan.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/metal-cpp.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/glfw.cmake)
 
@@ -20,6 +21,7 @@ if(NOT imgui_POPULATED)
 
     add_library(imgui-glfw-opengl STATIC)
     add_library(imgui-glfw-metal STATIC)
+    add_library(imgui-glfw-vulkan STATIC)
 
     ##########################################################################
     # Common settings
@@ -52,15 +54,14 @@ if(NOT imgui_POPULATED)
         ${IMGUI_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
     )
 
+    set_target_properties(imgui-glfw-opengl PROPERTIES
+        CXX_STANDARD 20
+    )
+
     target_include_directories(imgui-glfw-opengl
         PUBLIC
         ${IMGUI_BASE_DIR}
         ${imgui_SOURCE_DIR}
-    )
-
-    set_target_properties(imgui-glfw-opengl
-        PROPERTIES
-        CXX_STANDARD 20
     )
 
     target_link_libraries(imgui-glfw-opengl
@@ -80,13 +81,7 @@ if(NOT imgui_POPULATED)
         ${IMGUI_SOURCE_DIR}/backends/imgui_impl_metal.mm
     )
 
-    target_compile_definitions(imgui-glfw-metal
-        PRIVATE
-        "IMGUI_IMPL_METAL_CPP"
-    )
-
-    set_target_properties(imgui-glfw-metal
-        PROPERTIES
+    set_target_properties(imgui-glfw-metal PROPERTIES
         CXX_STANDARD 20
     )
 
@@ -107,5 +102,56 @@ if(NOT imgui_POPULATED)
         "-framework CoreVideo"
         "-framework QuartzCore"
     )
+
+    target_compile_definitions(imgui-glfw-metal
+        PRIVATE
+        "IMGUI_IMPL_METAL_CPP"
+    )
+
+    ##########################################################################
+    # GLFW + Vulkan config
+    ##########################################################################
+
+    target_sources(imgui-glfw-vulkan
+        PRIVATE
+        ${IMGUI_COMMON_SOURCES}
+        ${IMGUI_COMMON_GLFW}
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_vulkan.h
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+    )
+
+    set_target_properties(imgui-glfw-vulkan PROPERTIES
+        CXX_STANDARD 20
+    )
+
+    target_include_directories(imgui-glfw-vulkan
+        PUBLIC
+        ${IMGUI_BASE_DIR}
+        ${imgui_SOURCE_DIR}
+    )
+
+    target_link_libraries(imgui-glfw-vulkan
+        PRIVATE
+        glfw
+    )
+
+    if(APPLE)
+        target_link_libraries(imgui-glfw-vulkan
+            PRIVATE
+            MoltenVK
+            "-framework Metal"
+            "-framework MetalKit"
+            "-framework Cocoa"
+            "-framework IOKit"
+            "-framework CoreVideo"
+            "-framework QuartzCore"
+        )
+    else()
+        target_link_libraries(imgui-glfw-vulkan
+            PRIVATE
+            Vulkan::Headers
+            Vulkan::Loader
+        )
+    endif()
 
 endif()

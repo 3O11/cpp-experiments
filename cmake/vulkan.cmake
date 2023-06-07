@@ -1,11 +1,19 @@
 include(FetchContent)
 
+if(NOT $ENV{VULKAN_CMAKE_CONFIGURED})
+set(ENV{VULKAN_CMAKE_CONFIGURED} ON)
+
+##############################################################################
+# Declare Vulkan repositories
+##############################################################################
+
+# TODO: Figure out how to add profiles and other tools
+
 set(VULKAN_SDK_VERSION sdk-1.3.243.0)
 set(SHADERC_VERSION    v2023.3)
+set(MOLTENVK_VERSION   v1.2.4)
 
-# Vulkan SDK repos
-#  - some of these are actually not necessary for development, they will be
-#    in the future
+# Basic Vulkan stuff
 
 FetchContent_Declare(
     VulkanHeaders
@@ -19,35 +27,7 @@ FetchContent_Declare(
     GIT_TAG        ${VULKAN_SDK_VERSION}
 )
 
-#FetchContent_Declare(
-#    VulkanValidationLayers
-#    GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-ValidationLayers
-#    GIT_TAG        ${VULKAN_SDK_VERSION}
-#)
-
-#FetchContent_Declare(
-#    VulkanExtensionLayer
-#    GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-ExtensionLayer
-#    GIT_TAG        ${VULKAN_SDK_VERSION}
-#)
-
-#FetchContent_Declare(
-#    VulkanProfiles
-#    GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Profiles
-#    GIT_TAG        ${VULKAN_SDK_VERSION}
-#)
-
-#FetchContent_Declare(
-#    VulkanTools
-#    GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Tools
-#    GIT_TAG        ${VULKAN_SDK_VERSION}
-#)
-
-#FetchContent_Declare(
-#    LunargVulkanTools
-#    GIT_REPOSITORY https://github.com/LunarG/VulkanTools
-#    GIT_TAG        ${VULKAN_SDK_VERSION}
-#)
+# Shader compilers
 
 FetchContent_Declare(
     glslang
@@ -87,12 +67,6 @@ FetchContent_Declare(
     GIT_TAG        ${VULKAN_SDK_VERSION}
 )
 
-FetchContent_Declare(
-    gfxreconstruct
-    GIT_REPOSITORY https://github.com/LunarG/gfxreconstruct
-    GIT_TAG        ${VULKAN_SDK_VERSION}
-)
-
 # Other stuff
 
 FetchContent_Declare(
@@ -106,11 +80,10 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
 )
 
-#FetchContent_Declare(
-#    VulkanCapsViewer
-#    GIT_REPOSITORY https://github.com/SaschaWillems/VulkanCapsViewer
-#    GIT_TAG        3.31
-#)
+FetchContent_Declare(
+    MoltenVK
+    URL https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.4/MoltenVK-macos.tar
+)
 
 ##############################################################################
 # Set options to minimize the amount of available targets
@@ -121,7 +94,8 @@ set(SHADERC_SKIP_TESTS    ON CACHE BOOL "" FORCE)
 set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
 
 # SPIRV-Headers
-set(SPIRV_HEADERS_ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
+set(SPIRV_HEADERS_SKIP_INSTALL  ON CACHE BOOL "" FORCE)
 
 # SPIRV-Cross
 set(SPIRV_CROSS_CLI          OFF CACHE BOOL "" FORCE)
@@ -132,8 +106,11 @@ set(SPIRV_REFLECT_STATIC_LIB ON  CACHE BOOL "" FORCE)
 set(SPIRV_REFLECT_EXECUTABLE OFF CACHE BOOL "" FORCE)
 set(SPIRV_REFLECT_EXAMPLES   OFF CACHE BOOL "" FORCE)
 
-# Make necessary targets available
+# volk
+set(VOLK_STATIC_DEFINES ON  CACHE BOOL "" FORCE)
+set(VOLK_PULL_IN_VULKAN OFF CACHE BOOL "" FORCE)
 
+# Make necessary targets available
 FetchContent_MakeAvailable(
     # Base libraries
     VulkanHeaders
@@ -150,11 +127,33 @@ FetchContent_MakeAvailable(
     shaderc
 
     # Other
-    #volk
-    #VMA
+    volk
 )
 
-add_library(Vulkan::Loader ALIAS vulkan)
+FetchContent_GetProperties(VMA)
+if(NOT vma_POPULATED)
+    FetchContent_Populate(VMA)
+
+    add_library(VulkanMemoryAllocator INTERFACE)
+    target_include_directories(VulkanMemoryAllocator
+        INTERFACE
+        ${VMA_SOURCE_DIR}/include
+    )
+endif()
+
+FetchContent_GetProperties(MoltenVK)
+if(NOT moltenvk_POPULATED)
+    FetchContent_Populate(MoltenVK)
+
+    add_library(MoltenVK STATIC IMPORTED)
+    target_include_directories(MoltenVK
+        INTERFACE
+        ${moltenvk_SOURCE_DIR}/MoltenVK/include
+    )
+    set_target_properties(MoltenVK PROPERTIES
+        IMPORTED_LOCATION ${moltenvk_SOURCE_DIR}/MoltenVK/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a
+    )
+endif()
 
 add_library(SPIRV-Cross INTERFACE)
 target_link_libraries(SPIRV-Cross
@@ -169,3 +168,10 @@ target_link_libraries(SPIRV-Cross
 
 add_library(SPIRV-Reflect ALIAS spirv-reflect-static)
 
+target_link_libraries(volk
+    PRIVATE
+    Vulkan::Headers
+    Vulkan::Vulkan
+)
+
+endif(NOT $ENV{VULKAN_CMAKE_CONFIGURED})
