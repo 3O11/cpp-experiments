@@ -154,6 +154,16 @@ if(NOT TARGET MoltenVK)
     set_target_properties(MoltenVK PROPERTIES
         IMPORTED_LOCATION ${moltenvk_SOURCE_DIR}/MoltenVK/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a
     )
+    target_link_libraries(MoltenVK
+        INTERFACE
+        "-framework Metal"
+        "-framework MetalKit"
+        "-framework Cocoa"
+        "-framework IOKit"
+        "-framework CoreVideo"
+        "-framework QuartzCore"
+        "-framework IOSurface"
+    )
 endif()
 
 if(NOT TARGET SPIRV-Cross)
