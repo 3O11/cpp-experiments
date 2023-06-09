@@ -144,7 +144,7 @@ if(NOT imgui_POPULATED)
         target_link_libraries(imgui-glfw-vulkan
             PRIVATE
             Vulkan::Headers
-            Vulkan::Loader
+            Vulkan::Vulkan
         )
     endif()
 
